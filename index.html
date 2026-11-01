@@ -106,6 +106,10 @@ header{display:flex;align-items:center;gap:8px}
 .btn{padding:12px 16px;border-radius:14px;background:var(--bg);border:1px solid var(--line);font-weight:700;font-size:14px}
 .btn.pri{background:var(--accent);color:#fff;border-color:transparent}
 .note{font-size:12px;color:var(--muted);line-height:1.45}
+.sw.open{box-shadow:0 0 0 2px var(--ink)}
+.palette{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;padding:12px;border-radius:14px;background:var(--bg);justify-items:center}
+.pc{width:36px;height:36px;border-radius:50%;border:3px solid var(--bg)}
+.pc.cur{box-shadow:0 0 0 2px var(--ink)}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .actions .btn{background:var(--surface)}
 .actions .btn.dark{background:var(--ink);color:var(--bg);border-color:transparent}
@@ -172,7 +176,8 @@ const MONTHS=["Январь","Февраль","Март","Апрель","Май"
 const MONTHS_G=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
 const DOW=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
 const DOW_FULL=["понедельник","вторник","среда","четверг","пятница","суббота","воскресенье"];
-const COLORS=["#2F6FEB","#E0533D","#1FA67A","#9B5DE5","#F2A007","#0FA3B1","#E5487F","#5B6B7F"];
+const COLORS=["#2F6FEB","#0FA3B1","#1FA67A","#7CB518","#F2A007","#F26B1D","#E0533D","#C2185B","#E5487F","#9B5DE5","#5E4FD1","#5B6B7F"];
+let paletteFor=null;
 const LS="trainingCalendar.v1";
 const pad=n=>String(n).padStart(2,"0");
 const ds=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
@@ -457,12 +462,13 @@ function openPlanSheet(keep){
   const tpl=DOW.map((d,i)=>{const sel=t.days[i+1]||[];
     return `<div class="d">${d}</div><div class="chips">${state.types.map(ty=>{const on=sel.includes(ty.id);
       return `<button class="chip${on?" on":""}" data-wd="${i+1}" data-ty="${ty.id}" style="${on?"background:"+ty.color:""}"><i style="background:${on?"#fff":ty.color}"></i>${esc(ty.name)}</button>`;}).join("")||'<span class="empty">Добавьте тип ниже</span>'}</div>`;}).join("");
-  const types=state.types.map(ty=>`<div class="trow"><button class="sw" data-color="${ty.id}" style="background:${ty.color}" aria-label="Сменить цвет"></button>
-      <input id="nm-${ty.id}" value="${esc(ty.name)}" data-name="${ty.id}" aria-label="Название"><button class="x" data-del="${ty.id}">Удалить</button></div>`).join("");
+  const types=state.types.map(ty=>`<div class="trow"><button class="sw${paletteFor===ty.id?" open":""}" data-color="${ty.id}" style="background:${ty.color}" aria-label="Выбрать цвет" aria-expanded="${paletteFor===ty.id}"></button>
+      <input id="nm-${ty.id}" value="${esc(ty.name)}" data-name="${ty.id}" aria-label="Название"><button class="x" data-del="${ty.id}">Удалить</button></div>
+      ${paletteFor===ty.id?`<div class="palette">${COLORS.map(c=>`<button class="pc${c.toLowerCase()===String(ty.color).toLowerCase()?" cur":""}" data-pick="${ty.id}" data-c="${c}" style="background:${c}" aria-label="Цвет ${c}"></button>`).join("")}</div>`:""}`).join("");
   showSheet(`<div class="sh-head"><h2>План по неделе</h2><button class="close" data-close>Готово</button></div>
     <div class="note">Отметьте, какие тренировки в какие дни недели. Изменения действуют с сегодняшнего дня, прошлые дни не меняются. Конкретный день можно поправить, нажав на него в календаре.</div>
     <div class="tpl">${tpl}</div>
-    <div class="sec">Виды тренировок · нажмите кружок, чтобы сменить цвет</div>
+    <div class="sec">Виды тренировок · нажмите кружок, чтобы выбрать цвет</div>
     ${types}
     <button class="btn" id="addType">+ Новый вид тренировки</button>
     <div class="sec">Резервная копия</div>
@@ -473,8 +479,9 @@ function openPlanSheet(keep){
   const host=document.getElementById("sheetHost");
   host.querySelectorAll("[data-wd]").forEach(b=>b.onclick=()=>{const tt=editableTemplate(),k=b.dataset.wd,id=b.dataset.ty;
     const arr=tt.days[k]||[]; tt.days[k]=arr.includes(id)?arr.filter(x=>x!==id):[...arr,id]; changed(); render(); openPlanSheet(true);});
-  host.querySelectorAll("[data-color]").forEach(b=>b.onclick=()=>{const ty=typeById(b.dataset.color);
-    ty.color=COLORS[(COLORS.indexOf(ty.color)+1)%COLORS.length]; changed(); render(); openPlanSheet(true);});
+  host.querySelectorAll("[data-color]").forEach(b=>b.onclick=()=>{paletteFor=paletteFor===b.dataset.color?null:b.dataset.color; openPlanSheet(true);});
+  host.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{const ty=typeById(b.dataset.pick);
+    ty.color=b.dataset.c; paletteFor=null; changed(); render(); openPlanSheet(true);});
   host.querySelectorAll("[data-name]").forEach(inp=>inp.onchange=()=>{const ty=typeById(inp.dataset.name);
     const v=inp.value.trim(); if(v){ty.name=v.slice(0,40);changed();render();}});
   host.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
